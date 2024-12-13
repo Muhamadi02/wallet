@@ -239,3 +239,62 @@ func TestService_Reject_fail(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestService_Repeat_success(t *testing.T){
+	s := newTestService()
+	_, payments, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// попробуем повторить платеж
+	payment := payments[0]
+	got, err := s.Repeat(payment.ID)
+	if err != nil{
+		t.Errorf("Repeat(): error : %v",err)
+		return
+	}
+
+
+	if got.AccountID != payment.AccountID {
+		t.Errorf("Repeat(): repeat account is not payment account, \n Repeated payment = %v,\n Rejected payment = %v", got, payment)
+		return
+	}
+	if got.Amount != payment.Amount {
+		t.Errorf("Repeat(): repeat amount don't equal payment amount, \n Repeated payment = %v,\n Rejected payment = %v", got, payment)
+		return
+	}
+	if got.Category != payment.Category{
+		t.Errorf("Repeat(): repeat category don't equal payment category, \n Repeated payment = %v,\n Rejected payment = %v", got, payment)
+		return
+	}
+	if got.Status != payment.Status{
+		t.Errorf("Repeat(): repeat status don't equal payment status,\n Repeated payment = %v,\n Rejected payment = %v", got, payment)
+		return
+	}
+	
+}
+
+func TestService_Repeat_notFound(t *testing.T){
+	s := newTestService()
+
+	_, _, err := s.addAccount(defaultTestAccount)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	payment := uuid.New().String()
+	_, err = s.Repeat(payment)
+	if err == nil {
+		t.Errorf("Repeat(): must return error, returned nil")
+		return
+	}
+	if err != ErrPaymentNotFound {
+		t.Errorf("Repeat(): must return ErrPaymentNotFound, returned: %v",err)
+		return
+	}
+
+}
