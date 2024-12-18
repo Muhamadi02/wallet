@@ -11,11 +11,13 @@ var ErrAmountMustBePositive = errors.New("amount must be a greater than zero")
 var ErrAccountNotFound = errors.New("account not found")
 var ErrNotEnoughBalance = errors.New("not enough balance")
 var ErrPaymentNotFound = errors.New("payment not found")
+var ErrFavoriteNotFound = errors.New("favorite not found")
 
 type Service struct {
-	nextAccountID int64 // для генерации униакльного номера аккаунта
+	nextAccountID int64 // для генерации уникального номера аккаунта
 	accounts      []*types.Account
 	payments      []*types.Payment
+	favorites     []*types.Favorite
 }
 
 func (s *Service) RegisterAccount(phone types.Phone) (*types.Account, error) {
@@ -142,4 +144,50 @@ func (s *Service) Repeat(paymentID string)(*types.Payment, error){
 	}
 
 	return repeatPay, nil
+}
+
+// FavoritePayment создает избранное из конкретного платежа
+func (s *Service) FavoritePayment(paymentID string, name string) (*types.Favorite, error) {
+	payment, err := s.FindPaymentById(paymentID)
+	if err != nil {
+		return nil, err
+	}
+
+	favPaymentID := uuid.New().String()
+	favPayment := &types.Favorite{
+		ID: favPaymentID,
+		AccountID: payment.AccountID,
+		Name: name,
+		Amount: payment.Amount,
+		Categoty: payment.Category,
+	}
+
+	s.favorites = append(s.favorites, favPayment)
+	return favPayment, nil
+}
+
+// FindFavoriteByID - поиск избранного платежа по идентификатору.
+func (s *Service) FindFavoriteByID(favoriteID string) (*types.Favorite, error) {
+	for _, favorite := range s.favorites {
+		if favorite.ID == favoriteID {
+			return favorite, nil
+		}
+	}
+
+	return nil, ErrFavoriteNotFound
+}
+
+// PayFromFavorite - совершает платеж из конкретного избранного
+func (s *Service) PayFromFavorite(favoriteID string) (*types.Payment, error) {
+	favPayment, err := s.FindFavoriteByID(favoriteID)
+	if err != nil {
+		return nil, err
+	}
+
+	payment, err := s.Pay(favPayment.AccountID, favPayment.Amount, favPayment.Categoty)
+	if err != nil {
+		return nil, err
+	}
+
+	return payment, nil
 }
