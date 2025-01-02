@@ -439,3 +439,29 @@ func TestService_PayFromFavorite_notFound(t *testing.T) {
 		return
 	}
 }
+
+func TestService_ExportToFile_success(t *testing.T) {
+	s := newTestService()
+
+	_, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	err = s.ExportToFile("data/accounts.txt")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestService_ImportFromFile_success(t *testing.T) {
+	s := newTestService()
+
+	err := s.ImportFromFile("data/accounts.txt")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}

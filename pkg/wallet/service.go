@@ -2,6 +2,12 @@ package wallet
 
 import (
 	"errors"
+	"io"
+	"log"
+	"os"
+	"strconv"
+	"strings"
+
 	"github.com/Muhamadi02/wallet/pkg/types"
 	"github.com/google/uuid"
 )
@@ -190,4 +196,90 @@ func (s *Service) PayFromFavorite(favoriteID string) (*types.Payment, error) {
 	}
 
 	return payment, nil
+}
+
+// ExportToFile - экспортирует аккаунты в файл.
+func (s *Service) ExportToFile(path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	defer func ()  {
+		if cerr := file.Close(); cerr != nil {
+			log.Print(cerr)
+		}
+	}()
+
+	data := make([]byte, 0)
+	lastStr := ""
+	for _, account := range s.accounts {
+		text := []byte(
+			strconv.FormatInt(int64(account.ID), 10) + string(";") + 
+			string(account.Phone) + string(";") + 
+			strconv.FormatInt(int64(account.Balance), 10) + string("|"))
+		data = append(data, text...)
+		str := string(data)
+		lastStr = strings.TrimSuffix(str, "|")
+	}
+
+	_, err = file.Write([]byte(lastStr))
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	log.Printf("%#v", file)
+	return nil
+}
+
+// ImportFromFile - импортирует аккаунты из файла.
+func (s *Service) ImportFromFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	defer func ()  {
+		if cerr := file.Close(); cerr != nil {
+			log.Print(cerr)
+		}
+	}()
+
+	content := make([]byte, 0)
+	buf := make([]byte, 4)
+	for {
+		read, err := file.Read(buf)
+		if err == io.EOF {
+			content = append(content, buf[:read]...)
+			break
+		}
+
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+		content = append(content, buf[:read]...)
+	}
+
+	data := string(content)
+
+	acc := strings.Split(data, "|")
+	for _, tempAcc := range acc {
+		tempAccount := strings.Split(tempAcc, ";")
+		id, _ := strconv.ParseInt(tempAccount[0], 10, 64)
+
+		phone := types.Phone(tempAccount[1])
+
+		balance, _ := strconv.ParseInt(tempAccount[2], 10, 64)
+
+		account := &types.Account{
+			ID: id,
+			Phone: phone,
+			Balance: types.Money(balance),
+		}
+
+		s.accounts = append(s.accounts, account)
+	}
+	
+	return nil
 }
