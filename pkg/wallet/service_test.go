@@ -456,6 +456,21 @@ func TestService_ExportToFile_success(t *testing.T) {
 	}
 }
 
+func TestService_ExportToFile_notFound(t *testing.T) {
+	s := newTestService()
+	_, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	err = s.ExportToFile("")
+	if err == nil {
+		t.Error(err)
+		return
+	}
+}
+
 func TestService_ImportFromFile_success(t *testing.T) {
 	s := newTestService()
 
@@ -463,5 +478,119 @@ func TestService_ImportFromFile_success(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 		return
+	}
+}
+
+func TestService_ImportFromFile_notFound(t *testing.T) {
+	s := newTestService()
+
+	err := s.ImportFromFile("")
+	if err == nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestService_Export_full(t *testing.T){
+	s := newTestService()
+	_, payments, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	payment := payments[0]
+	_, err = s.FavoritePayment(payment.ID, "my favor payment")
+	if err != nil {
+		t.Errorf("FavoritePayment(): error: %v", err)
+		return
+	}
+
+	err = s.Export("data")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestService_Import_full_success(t *testing.T) {
+	s := newTestService()
+
+	err := s.Import("data")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestService_ExportAccountHistory_success(t *testing.T) {
+	s := newTestService()
+	
+	acc, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	_, err = s.ExportAccountHistory(acc.ID)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestService_ExportAccountHistory_notFound(t *testing.T) {
+	s := newTestService()
+	
+	_, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	tempID := s.nextAccountID + 1
+	_, err = s.FindAccountByID(tempID)
+	if err == nil {
+		t.Error("FindAccountByID(): must return error, returned nil")
+		return
+	}
+
+	_, err = s.ExportAccountHistory(tempID)
+	if err == nil {
+		t.Error("ExportAccountHistory(): must return error, returned nil")
+		return
+	}
+	if err != ErrAccountNotFound {
+		t.Errorf("ExportAccountsHistory(): must return ErrAccountNotFound, returned %v", err)
+		return
+	}
+}
+
+func TestService_HistoryToFiles_success(t *testing.T) {
+	s := newTestService()
+
+	acc, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	payments, err := s.ExportAccountHistory(acc.ID)
+	if err != nil {
+		t.Error(err)
+	}
+	err = s.HistoryToFiles(payments, "data", 3)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestService_HistoryToFiles_notSuccess(t *testing.T) {
+	s := newTestService()
+
+	payment := []types.Payment{}
+	err := s.HistoryToFiles(payment, "data", 12)
+	if err != nil {
+		t.Error(err)
 	}
 }
