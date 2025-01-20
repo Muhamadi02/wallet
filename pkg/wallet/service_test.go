@@ -51,7 +51,7 @@ func (s *testService) addAccount(data testAccount) (*types.Account, []*types.Pay
 			return nil, nil, nil, fmt.Errorf("can't make payment, error = %v", err)
 		}
 
-		favPaymentName := "Favorite payment_" + strconv.Itoa(i) 
+		favPaymentName := "Favorite payment_" + strconv.Itoa(i)
 		favorites[i], err = s.FavoritePayment(payments[i].ID, favPaymentName)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("can't make favorite payment, error = %v", err)
@@ -69,6 +69,19 @@ var defaultTestAccount = testAccount{
 		category types.PaymentCategory
 	}{
 		{amount: 1_000_00, category: "auto"},
+	},
+}
+
+var defaultTestAccount2 = testAccount{
+	phone:   "+992000000002",
+	balance: 15_000_00,
+	payments: []struct {
+		amount   types.Money
+		category types.PaymentCategory
+	}{
+		{amount: 2_500_00, category: "auto"},
+		{amount: 3_000_00, category: "phone"},
+		{amount: 5_000_00, category: "shop"},
 	},
 }
 
@@ -249,7 +262,7 @@ func TestService_Reject_fail(t *testing.T) {
 	}
 }
 
-func TestService_Repeat_success(t *testing.T){
+func TestService_Repeat_success(t *testing.T) {
 	s := newTestService()
 	_, payments, _, err := s.addAccount(defaultTestAccount)
 	if err != nil {
@@ -260,11 +273,10 @@ func TestService_Repeat_success(t *testing.T){
 	// попробуем повторить платеж
 	payment := payments[0]
 	got, err := s.Repeat(payment.ID)
-	if err != nil{
-		t.Errorf("Repeat(): error : %v",err)
+	if err != nil {
+		t.Errorf("Repeat(): error : %v", err)
 		return
 	}
-
 
 	if got.AccountID != payment.AccountID {
 		t.Errorf("Repeat(): repeat account is not payment account, \n Repeated payment = %v,\n Rejected payment = %v", got, payment)
@@ -274,18 +286,18 @@ func TestService_Repeat_success(t *testing.T){
 		t.Errorf("Repeat(): repeat amount don't equal payment amount, \n Repeated payment = %v,\n Rejected payment = %v", got, payment)
 		return
 	}
-	if got.Category != payment.Category{
+	if got.Category != payment.Category {
 		t.Errorf("Repeat(): repeat category don't equal payment category, \n Repeated payment = %v,\n Rejected payment = %v", got, payment)
 		return
 	}
-	if got.Status != payment.Status{
+	if got.Status != payment.Status {
 		t.Errorf("Repeat(): repeat status don't equal payment status,\n Repeated payment = %v,\n Rejected payment = %v", got, payment)
 		return
 	}
-	
+
 }
 
-func TestService_Repeat_notFound(t *testing.T){
+func TestService_Repeat_notFound(t *testing.T) {
 	s := newTestService()
 
 	_, _, _, err := s.addAccount(defaultTestAccount)
@@ -302,12 +314,11 @@ func TestService_Repeat_notFound(t *testing.T){
 		return
 	}
 	if err != ErrPaymentNotFound {
-		t.Errorf("Repeat(): must return ErrPaymentNotFound, returned: %v",err)
+		t.Errorf("Repeat(): must return ErrPaymentNotFound, returned: %v", err)
 		return
 	}
 
 }
-
 
 func TestService_FavoritePayment_success(t *testing.T) {
 	s := newTestService()
@@ -319,7 +330,7 @@ func TestService_FavoritePayment_success(t *testing.T) {
 	}
 
 	payment := payments[0]
-	_, err = s.FavoritePayment(payment.ID,"megafon")
+	_, err = s.FavoritePayment(payment.ID, "megafon")
 	if err != nil {
 		t.Errorf("FavoritePayment(): error: %v", err)
 		return
@@ -346,7 +357,7 @@ func TestService_Favorite_notFound(t *testing.T) {
 	}
 }
 
-func TestService_FindFavoriteByID_success (t *testing.T) {
+func TestService_FindFavoriteByID_success(t *testing.T) {
 	s := newTestService()
 
 	_, _, favorites, err := s.addAccount(defaultTestAccount)
@@ -363,7 +374,7 @@ func TestService_FindFavoriteByID_success (t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(result, favorite) {
-		t.Errorf("FindFavoriteByID(): wrong favorite payment returned = %v",err)
+		t.Errorf("FindFavoriteByID(): wrong favorite payment returned = %v", err)
 		return
 	}
 }
@@ -491,7 +502,7 @@ func TestService_ImportFromFile_notFound(t *testing.T) {
 	}
 }
 
-func TestService_Export_full(t *testing.T){
+func TestService_Export_full(t *testing.T) {
 	s := newTestService()
 	_, payments, _, err := s.addAccount(defaultTestAccount)
 	if err != nil {
@@ -525,7 +536,7 @@ func TestService_Import_full_success(t *testing.T) {
 
 func TestService_ExportAccountHistory_success(t *testing.T) {
 	s := newTestService()
-	
+
 	acc, _, _, err := s.addAccount(defaultTestAccount)
 	if err != nil {
 		t.Error(err)
@@ -541,7 +552,7 @@ func TestService_ExportAccountHistory_success(t *testing.T) {
 
 func TestService_ExportAccountHistory_notFound(t *testing.T) {
 	s := newTestService()
-	
+
 	_, _, _, err := s.addAccount(defaultTestAccount)
 	if err != nil {
 		t.Error(err)
@@ -592,5 +603,160 @@ func TestService_HistoryToFiles_notSuccess(t *testing.T) {
 	err := s.HistoryToFiles(payment, "data", 12)
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestService_SumPayments(t *testing.T) {
+	s := newTestService()
+	_, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	sum := s.SumPayments(0)
+	if sum != 1_000_00 {
+		t.Errorf("SumPayments(): sum = %v", sum)
+	}
+
+}
+
+func BenchmarkSumPayments(b *testing.B) {
+	s := newTestService()
+	_, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		b.Error(err)
+	}
+	want := types.Money(1_000_00)
+	for i := 0; i < b.N; i++ {
+		result := s.SumPayments(3)
+		if result != want {
+			b.Fatalf("INVALID: result_we_got %v, result_we_want %v", result, want)
+		}
+	}
+}
+
+func TestService_FilterPayments(t *testing.T) {
+	s := newTestService()
+	acc1, payments1, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, _, _, err = s.addAccount(defaultTestAccount2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	filterPayment, err := s.FilterPayments(acc1.ID, 2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	want := len(payments1)
+	result := len(filterPayment)
+	if !reflect.DeepEqual(result, want) {
+		t.Errorf("FilterPaymnets(): INVALID: result we got %v, result we want %v", result, want)
+		return
+	}
+}
+
+func TestService_FilterPayments_notSuccess(t *testing.T) {
+	s := newTestService()
+	_, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	_, err = s.FilterPayments(s.nextAccountID+1, 0)
+	if err == nil {
+		t.Error(err)
+		return
+	}
+}
+
+func BenchmarkFilterPayments(b *testing.B) {
+	s := newTestService()
+	_, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		b.Error(err)
+		return
+	}
+
+	acc2, payments2, _, err := s.addAccount(defaultTestAccount2)
+	if err != nil {
+		b.Error(err)
+		return
+	}
+
+	for i := 0; i < b.N; i++ {
+		payment, err := s.FilterPayments(acc2.ID, 3)
+		if err != nil {
+			b.Error(err)
+			return
+		}
+
+		want := len(payments2)
+		result := len(payment)
+		if !reflect.DeepEqual(result, want) {
+			b.Fatalf("FilterPayments(): INVALID: result we got %v, result we want %v", result, want)
+			return
+		}
+	}
+}
+
+func TestService_FilterPaymentsByFn(t *testing.T) {
+	s := newTestService()
+	_, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, _, _, err = s.addAccount(defaultTestAccount2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	payment, err := s.FilterPaymentsByFn(FilterCategory,0)
+	if err != nil {
+		t.Error(err)
+	}
+
+	want := 2
+	result := len(payment)
+	if !reflect.DeepEqual(result, want) {
+		t.Fatalf("FilterPayments(): INVALID: result we got %v, result we want %v", result, want)
+		return
+	}
+}
+
+func BenchmarkFilterPaymentsByFn(b *testing.B) {
+	s := newTestService()
+	_, _, _, err := s.addAccount(defaultTestAccount)
+	if err != nil {
+		b.Error(err)
+	}
+
+	_, _, _, err = s.addAccount(defaultTestAccount2)
+	if err != nil {
+		b.Error(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		payment, err := s.FilterPaymentsByFn(FilterCategory, 10)
+		if err != nil {
+			b.Error(err)
+			return
+		}
+
+		want := 2
+		result := len(payment)
+		if !reflect.DeepEqual(result, want) {
+			b.Fatalf("FilterPayments(): INVALID: result we got %v, result we want %v", result, want)
+			return
+		}
 	}
 }

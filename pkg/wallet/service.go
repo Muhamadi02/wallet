@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Muhamadi02/wallet/pkg/types"
 	"github.com/google/uuid"
@@ -578,4 +579,133 @@ func (s *Service) HistoryToFiles(payments []types.Payment, dir string, records i
 	}
 
 	return nil
+}
+
+// SumPayments - суммирует платежи с помощью горутин
+func (s *Service) SumPayments(goroutines int) types.Money {
+
+	if goroutines < 1 {
+		goroutines = 1
+	}
+
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+
+	num := len(s.payments)/goroutines + 1
+	sum := types.Money(0)
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		total := types.Money(0)
+
+		go func (val int)  {
+			defer wg.Done()
+			lowIndex := val * num
+			highIndex := (val * num) + num
+
+			for j := lowIndex; j < highIndex; j++ {
+				if j > len(s.payments) - 1 {
+					break
+				}
+				total += s.payments[j].Amount
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			sum += total
+		}(i)
+	}
+	
+	wg.Wait()
+	return sum
+}
+
+// FilterPayments - выводить все платежи определенного аккаунта.
+func (s *Service) FilterPayments(accountID int64, goroutines int) ([]types.Payment, error) {
+	
+	_, err := s.FindAccountByID(accountID)
+	if err != nil {
+		return nil, err
+	}
+
+	if goroutines < 1 {
+		goroutines = 1
+	}
+
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+
+	num := len(s.payments)/goroutines + 1
+	resPayments := []types.Payment{}
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		tempPayments := []types.Payment{}
+
+		go func (val int)  {
+			defer wg.Done()
+			lowIndex := val * num
+			highIndex := (val * num) + num
+
+			for j := lowIndex; j < highIndex; j++ {
+				if j > len(s.payments) - 1 {
+					break
+				}
+
+				if s.payments[j].AccountID == accountID {
+					tempPayments = append(tempPayments, *s.payments[j])
+				}
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			resPayments = append(resPayments, tempPayments...) 
+		}(i)
+	}
+
+	wg.Wait()
+	return resPayments, nil
+}
+
+// FilterCategory ставит нужную категорию.
+func FilterCategory(payment types.Payment) bool {
+	return payment.Category == "auto"
+}
+
+// FilterPaymentsByFn фильтрует платежи по любим функциям.
+func (s *Service) FilterPaymentsByFn(filter func(payment types.Payment)bool, goroutines int) ([]types.Payment, error) {
+	if goroutines < 1 {
+		goroutines = 1
+	}
+
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+
+	num := len(s.payments)/goroutines + 1
+	resPayments := []types.Payment{}
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		tempPayments := []types.Payment{}
+
+		go func (val int)  {
+			defer wg.Done()
+			lowIndex := val * num
+			highIndex := (val * num) + num
+
+			for j := lowIndex; j < highIndex; j++ {
+				if j > len(s.payments) - 1 {
+					break
+				}
+
+				if filter(*s.payments[j]) {
+					tempPayments = append(tempPayments, *s.payments[j])
+				}
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			resPayments = append(resPayments, tempPayments...)
+		}(i)
+	}
+
+	wg.Wait()
+	return resPayments, nil
 }
